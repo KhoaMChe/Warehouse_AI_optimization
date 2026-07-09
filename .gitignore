@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+venv/
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Models
+models/
+*.pkl
+*.joblib
+
+# Output
+output/
+
+# Raw data
+data/raw/
+
+data/clean/
+
+# Processed data (nếu dữ liệu lớn hoặc nội bộ)
+data/process/
+
+data/Processed/
+
+# Cache
+.cache/
+
+# Logs
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
