@@ -54,21 +54,57 @@ Dataset nhãn cho bài toán kho chính được tạo trong `src/dataset/datase
 ## Cấu trúc thư mục
 
 ```text
-main.py
-README.md
-requirements.txt
-data/
-	raw/
-	clean/
-notebooks/
-src/
-	preprocessing.py
-	dataset/
-	feature/
-	model/
-	train/
-simulation/
-output/
+warehouse-slotting/
+│
+├── main.py
+├── README.md
+├── requirements.txt
+│
+├── data/
+│   ├── raw/
+│   ├── clean/
+│   ├── processed/          ⭐ Feature sau khi tạo
+│   └── external/
+│
+├── notebooks/
+│   ├── 01_cleaning.ipynb
+│   ├── 02_eda.ipynb
+│   ├── 03_feature_engineering.ipynb
+│   ├── 04_training.ipynb
+│   └── 05_evaluation.ipynb
+│
+├── src/
+│
+│   ├── preprocessing.py
+│
+│   ├── dataset/
+│   │     loader.py
+│   │
+│   ├── feature/
+│   │     __init__.py
+│   │     basic.py
+│   │     temporal.py
+│   │     warehouse.py
+│   │     advanced.py
+│   │     merge.py
+│   │
+│   ├── model/
+│   │     ranker.py
+│   │     rule_based.py
+│   │
+│   ├── evaluation/
+│   │     metrics.py
+│   │
+│   └── utils.py
+│
+├── simulation/
+│
+├── output/
+│   ├── feature_table.csv
+│   ├── ranking_result.csv
+│   └── recommendation.csv
+│
+└── images/
 ```
 
 ## Hướng dẫn chạy

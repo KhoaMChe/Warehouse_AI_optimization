@@ -4,6 +4,7 @@ import pandas as pd
 def build_basic_feature(
     sanpham: pd.DataFrame,
     tonkho: pd.DataFrame,
+    nhapkho: pd.DataFrame,
     xuatkho: pd.DataFrame,
     cham: pd.DataFrame,
 ) -> pd.DataFrame:
@@ -21,7 +22,7 @@ def build_basic_feature(
     tonkho = tonkho.copy()
     xuatkho = xuatkho.copy()
     cham = cham.copy()
-
+    nhapkho = nhapkho.copy()
     # ==========================================================
     # TÍNH TỔNG SỐ LƯỢNG XUẤT (ALLOCATED)
     # ==========================================================
