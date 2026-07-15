@@ -63,7 +63,7 @@ warehouse-slotting/
 ├── data/
 │   ├── raw/
 │   ├── clean/
-│   ├── processed/          ⭐ Feature sau khi tạo
+│   ├── processed/          
 │   └── external/
 │
 ├── notebooks/
