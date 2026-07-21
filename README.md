@@ -142,3 +142,39 @@ Kết quả của dự án được lưu ở:
 - Hoàn thiện script chạy end-to-end thay vì phụ thuộc notebook.
 - Bổ sung mô hình dự đoán kho hoặc vị trí cho SKU.
 - Thêm đánh giá hiệu quả trước và sau tối ưu bằng các KPI vận hành kho.
+
+
+                 Import SKU
+                      │
+                      ▼
+          Feature Engineering
+                      │
+                      ▼
+            day.pkl (Predict Day)
+                      │
+                      ▼
+           tang.pkl (Predict Tang)
+                      │
+                      ▼
+      Lấy tất cả vị trí thuộc (Day,Tang)
+          từ bảng vitri
+                      │
+                      ▼
+      Kiểm tra trạng thái từng vị trí
+                      │
+        ┌─────────────┴─────────────┐
+        │                           │
+        ▼                           ▼
+ Có trong tồn kho?           Có đang châm hàng?
+        │                           │
+      Loại bỏ                    Loại bỏ
+        │                           │
+        └─────────────┬─────────────┘
+                      ▼
+              Danh sách còn trống
+                      │
+                      ▼
+          Sắp xếp theo tiêu chí
+                      │
+                      ▼
+               Top 5 vị trí

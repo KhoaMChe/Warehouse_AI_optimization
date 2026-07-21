@@ -7,6 +7,7 @@ from .feature import (
     create_product_feature,
     create_replenishment_feature,
     create_temporal_feature,
+    build_location_feature,
 )
 
 def build_feature_table(
@@ -14,7 +15,9 @@ def build_feature_table(
     tonkho,
     nhapkho,
     xuatkho,
-    cham
+    cham,
+    vitri
+    
 ):
 
     product = create_product_feature(
@@ -39,31 +42,45 @@ def build_feature_table(
         nhapkho
     )
 
-    feature = (
-        product
-        .merge(
-            inventory,
-            how="left"
-        )
-        .merge(
-            outbound,
-            how="left"
-        )
-        .merge(
-            replenish,
-            how="left"
-        )
-        .merge(
-            temporal,
-            how="left"
-        )
+    location = build_location_feature(
+        tonkho,
+        vitri,
     )
 
-    feature = feature.fillna(0)
-
-    feature["inventory_turnover"] = (
+    feature = (
+        tonkho[
+            ["san_pham_id", "vi_tri_id", "kho_id"]
+        ]
+        .drop_duplicates()
+    )
+    feature = (
+        feature
+        .merge(product, on="san_pham_id", how="left")
+        .merge(inventory, on="san_pham_id", how="left")
+        .merge(outbound, on="san_pham_id", how="left")
+        .merge(replenish, on="san_pham_id", how="left")
+        .merge(temporal, on="san_pham_id", how="left")
+        .merge(
+            vitri[
+                [
+                    "auto_id",
+                    "day_ke_id",
+                    "ma_so_vi_tri",
+                    "tang",
+                    "vi_tri_type_id",
+                ]
+            ],
+            left_on="vi_tri_id",
+            right_on="auto_id",
+            how="left",
+        )
+    )
+    feature = feature.drop(columns="auto_id")
+    feature["Vong_Quay_tonkho"] = (
         feature["tong_xuat"]
         / feature["ton_kho"]
     ).replace(np.inf,0).fillna(0)
 
     return feature
+
+
