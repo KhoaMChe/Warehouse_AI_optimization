@@ -115,16 +115,10 @@ def rank_position(
 
             replenish = pd.concat(
                 [
-                    cham["vi_tri_cu_id"],
+                    #cham["vi_tri_cu_id"],
                     cham["vi_tri_moi_id"],
                 ]
             ).dropna().unique()
-
-            candidate = candidate[
-                ~candidate["auto_id"].isin(
-                    replenish
-                )
-            ]
 
             if candidate.empty:
                 continue
@@ -135,25 +129,30 @@ def rank_position(
 
             candidate["score"] = 0.0
 
+            candidate.loc[
+                candidate["auto_id"].isin(replenish),
+                "score",
+            ] -= 200
+            
             # cùng SKU
             candidate.loc[
                 candidate["same_product"],
                 "score",
-            ] += 100
+            ] += 200
 
-            # vị trí trống
+            # vị trí trống ưu tiên
             candidate.loc[
                 candidate["empty"],
                 "score",
-            ] += 50
+            ] += 100
 
             # xác suất AI
             candidate["score"] += (
-                day_prob * 30
+                day_prob * 50
             )
 
             candidate["score"] += (
-                tang_prob * 20
+                tang_prob * 40
             )
 
             candidate["day_probability"] = day_prob
@@ -162,6 +161,80 @@ def rank_position(
 
             results.append(candidate)
 
+            #hàng nặng tầng thấp
+            gw = product["gw_san_pham"]
+
+            if gw >= 30:
+
+                candidate.loc[
+                    candidate["tang"] == 1,
+                    "score",
+                ] += 40
+
+                candidate.loc[
+                    candidate["tang"] == 2,
+                    "score",
+                ] += 20
+
+                candidate.loc[
+                    candidate["tang"] >= 3,
+                    "score",
+                ] -= 50
+
+                #hàng cồng kềnh tầng thấp 
+            cbm = product["cbm_san_pham"]
+
+            if cbm >= 0.10:
+
+                candidate.loc[
+                    candidate["tang"] == 1,
+                    "score",
+                ] += 35
+
+                candidate.loc[
+                    candidate["tang"] >= 3,
+                    "score",
+                ] -= 30
+
+            #Hàng HSD sắp hết < 60 ngày 
+            if product["so_ngay_su_dung"] <= 60:
+
+                candidate.loc[
+                    candidate["tang"] == 1,
+                    "score",
+                ] += 20
+
+                candidate.loc[
+                    candidate["tang"] >= 3,
+                    "score",
+                ] -= 20
+            #dãy quá nhiều sku và pallet giảm điểm ưu tiên dãy trống
+            day_count = tonkho.merge(
+                vitri[
+                    [
+                        "auto_id",
+                        "day_ke_id",
+                    ]
+                ],
+                left_on="vi_tri_id",
+                right_on="auto_id",
+            )
+
+            load = (
+                day_count
+                .groupby("day_ke_id")
+                .size()
+            )
+
+            candidate["day_load"] = (
+                candidate["day_ke_id"]
+                .map(load)
+                .fillna(0)
+            )
+
+            candidate["score"] -= (
+                candidate["day_load"] * 0.2
+            )
     # =====================================================
     # Không có candidate
     # =====================================================

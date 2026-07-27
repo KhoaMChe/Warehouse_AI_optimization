@@ -7,7 +7,6 @@ from .feature import (
     create_product_feature,
     create_replenishment_feature,
     create_temporal_feature,
-    build_location_feature,
 )
 
 def build_feature_table(
@@ -42,10 +41,10 @@ def build_feature_table(
         nhapkho
     )
 
-    location = build_location_feature(
-        tonkho,
-        vitri,
-    )
+    # location = build_location_feature(
+    #     tonkho,
+    #     vitri,
+    # )
 
     feature = (
         tonkho[

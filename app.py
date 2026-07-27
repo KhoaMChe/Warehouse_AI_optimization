@@ -12,7 +12,7 @@ from src.model.ranking import rank_position
 
 st.set_page_config(
     page_title="Warehouse AI",
-    page_icon="📦",
+    page_icon="TK",
     layout="wide",
 )
 
@@ -44,8 +44,11 @@ def load_data():
         BASE_DIR / "./data/clean/log_cham_hang.csv",
         low_memory=False,
     )
-
-    return feature_table, vitri, tonkho, cham
+    dm_san_pham = pd.read_csv(
+        BASE_DIR / "./data/clean/dm_san_pham_clean.csv",
+        low_memory=False,
+    )
+    return feature_table, vitri, tonkho, cham, dm_san_pham
 
 
 @st.cache_resource
@@ -59,7 +62,7 @@ def load_predictor(feature_table):
     return predictor
 
 
-feature_table, vitri, tonkho, cham = load_data()
+feature_table, vitri, tonkho, cham, dm_san_pham = load_data()
 
 predictor = load_predictor(feature_table)
 
@@ -67,7 +70,7 @@ predictor = load_predictor(feature_table)
 # Header
 # ==========================================================
 
-st.title("📦 Warehouse AI Slotting")
+st.title("Warehouse AI Slotting")
 
 st.write(
     "AI gợi ý vị trí lưu trữ hàng hóa."
@@ -88,6 +91,79 @@ warehouse = st.selectbox(
 
 predictor.load_model(warehouse)
 
+is_new_product = st.checkbox("Sản phẩm mới")
+products = (
+    dm_san_pham[
+        [
+            "auto_id",
+            "ma_san_pham",
+            "ten_san_pham",
+            "nganh_hang_id",
+            "gw_san_pham",
+            "cbm_san_pham",
+        ]
+    ]
+    .drop_duplicates()
+)
+
+nganh_options = (
+    dm_san_pham["nganh_hang_id"]
+    .dropna()
+    .drop_duplicates()
+    .sort_values()
+    .tolist()
+)
+
+if not is_new_product:
+
+    selected = st.selectbox(
+        "Sản phẩm",
+        options=products.to_dict("records"),
+        format_func=lambda x: f"{x['ma_san_pham']} - {x['ten_san_pham']}"
+    )
+
+    auto_id = selected["auto_id"]
+    ten_san_pham = selected["ten_san_pham"]
+
+    nganh_hang_id = selected["nganh_hang_id"]
+    gw = float(selected["gw_san_pham"])
+    cbm = float(selected["cbm_san_pham"])
+
+    st.text_input(
+        "Ngành hàng",
+        value=str(nganh_hang_id),
+        disabled=True,
+    )
+
+    st.number_input(
+        "GW",
+        value=gw,
+        disabled=True,
+    )
+
+    st.number_input(
+        "CBM",
+        value=cbm,
+        disabled=True,
+    )
+
+else:
+
+    auto_id = -1
+
+    st.text_input("Mã sản phẩm")
+
+    st.text_input("Tên sản phẩm")
+
+    nganh_hang_id = st.selectbox(
+        "Ngành hàng",
+        options=nganh_options,
+    )
+
+    gw = st.number_input("GW", value=0.0)
+
+    cbm = st.number_input("CBM", value=0.0)
+    
 # ==========================================================
 # Form
 # ==========================================================
@@ -97,43 +173,18 @@ with st.form("predict"):
     col1, col2 = st.columns(2)
 
     with col1:
-
-        auto_id = st.number_input(
-            "SKU",
-            value=99999999,
-        )
-
-        nganh_hang_id = st.number_input(
-            "Ngành hàng",
-            value=18,
-        )
-
-        gw = st.number_input(
-            "GW",
-            value=1.5,
-        )
-
-        cbm = st.number_input(
-            "CBM",
-            value=0.006,
+        shelf = st.number_input(
+            "Số ngày sử dụng",
+            value=0,
         )
 
     with col2:
-
-        shelf = st.number_input(
-            "Số ngày sử dụng",
-            value=365,
-        )
-
         quantity = st.number_input(
             "Số lượng nhập",
-            value=300,
+            value=0,
         )
 
-    submit = st.form_submit_button(
-        "Gợi ý vị trí"
-    )
-
+    submit = st.form_submit_button("Gợi ý vị trí")
 # ==========================================================
 # Predict
 # ==========================================================

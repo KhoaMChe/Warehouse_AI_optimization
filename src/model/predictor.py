@@ -7,7 +7,6 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 MODEL_DIR = BASE_DIR / "models"
-
 class Predictor:
     """
     Predictor cho hệ thống Warehouse AI.
@@ -30,7 +29,7 @@ class Predictor:
         model_root: str,
     ):
 
-        self.feature_table = feature_table.copy()
+        self.feature_table = feature_table
 
         self.model_root = Path(model_root)
 
@@ -38,7 +37,7 @@ class Predictor:
         self.tang_model = None
         self.day_columns = None
         self.tang_columns = None
-
+        self.loaded_kho = None
     # ==========================================================
     # Load model
     # ==========================================================
@@ -48,7 +47,11 @@ class Predictor:
         kho_id: int,
     ):
 
-        folder = MODEL_DIR / str(kho_id)
+        # Nếu đã load kho này rồi thì bỏ qua
+        if self.loaded_kho == kho_id:
+            return
+        
+        folder = MODEL_DIR / str(kho_id) / "RandomForest"
 
         if not folder.exists():
             raise FileNotFoundError(
@@ -56,7 +59,7 @@ class Predictor:
             )
 
         self.day_model = joblib.load(
-            folder / "day.pkl"
+            folder / "day_ke_id.pkl"
         )
 
         self.tang_model = joblib.load(
@@ -64,7 +67,7 @@ class Predictor:
         )
 
         self.day_columns = joblib.load(
-            folder / "day_columns.pkl"
+            folder / "day_ke_id_columns.pkl"
         )
 
         self.tang_columns = joblib.load(
@@ -467,35 +470,3 @@ class Predictor:
             )
 
         return results
-
-
-# feature_table = pd.read_csv(
-#     "../../data/process/classic_feature.csv"
-# )
-
-# predictor = Predictor(
-#     feature_table,
-#     "model_file",
-# )
-
-# predictor.load_model(12473657)
-
-# product = {
-
-#     "auto_id": 123456,
-
-#     "nganh_hang_id": 18,
-
-#     "gw_san_pham": 1.2,
-
-#     "cbm_san_pham": 0.003,
-
-#     "so_ngay_su_dung": 365,
-
-# }
-
-# result = predictor.predict(product)
-
-# print(result["day_prediction"])
-
-# print(result["tang_prediction"])
