@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import time
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import LabelEncoder
 
 from sklearn.metrics import (
@@ -28,7 +28,9 @@ def train_model(
     # Remove singleton class
     # ==========================================
 
-    count = feature[target].value_counts()
+    # A class needs at least two distinct SKUs so train and test can be
+    # separated without leaking duplicated location rows of the same SKU.
+    count = feature.groupby(target)["san_pham_id"].nunique()
 
     valid_class = count[count >= 2].index
 
@@ -49,19 +51,17 @@ def train_model(
     # ==========================================
 
     y = feature[target]
+    groups = feature["san_pham_id"]
 
     X = feature.drop(columns=drop_cols)
     # ==========================================
     # Split
     # ==========================================
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.2,
-        random_state=42,
-        stratify=y,
-    )
+    splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+    train_idx, test_idx = next(splitter.split(X, y, groups=groups))
+    X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+    y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
     # ==========================================
     # Train

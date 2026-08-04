@@ -27,7 +27,9 @@ df = pd.read_csv(
 KHO_ID = 12473657
 
 feature = (
-    df.query("kho_id == @KHO_ID")
+    # Putaway model learns Reserve only. Mixing Primary/Bãi Put/Reserve
+    # makes the target describe several different operational problems.
+    df.query("kho_id == @KHO_ID and vi_tri_type_id == 2")
       .reset_index(drop=True)
 )
 
@@ -50,6 +52,8 @@ drop_day = [
     "ma_so_vi_tri",
     "kho_id",
     "abc_class",
+    "tang",
+    "vi_tri_type_id",
 ]
 
 drop_tang = [
@@ -59,6 +63,7 @@ drop_tang = [
     "ma_so_vi_tri",
     "kho_id",
     "abc_class",
+    "vi_tri_type_id",
 ]
 MODELS = {
 

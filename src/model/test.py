@@ -71,7 +71,10 @@ product = {
 # Predictor
 # ==========================================================
 
-result = predictor.predict(product)
+result = predictor.predict(
+    product,
+    target_vi_tri_type_id=2,  # Reserve, cho module Putaway
+)
 
 print("=" * 60)
 print("DAY")
@@ -92,6 +95,7 @@ ranking = rank_position(
     tonkho=tonkho,
     cham=cham,
     top_k=5,
+    target_vi_tri_type_id=2,  # đồng bộ với ranking.py đã sửa trước đó
 )
 
 print()

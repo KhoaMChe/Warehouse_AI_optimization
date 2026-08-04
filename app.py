@@ -76,7 +76,7 @@ st.markdown(
         /* ---------- Ẩn header/footer mặc định ---------- */
         #MainMenu {{visibility: hidden;}}
         footer {{visibility: hidden;}}
-        header {{visibility: hidden;}}
+        /*header {{visibility: hidden;}}*/
 
         /* ---------- Sidebar ---------- */
         section[data-testid="stSidebar"] {{
@@ -533,15 +533,20 @@ def get_warehouse_positions(vitri_df: pd.DataFrame, tonkho_df: pd.DataFrame, kho
     df["pos"] = df.groupby(["day_ke_id", "tang"]).cumcount() + 1
 
     occupied_ids = set()
-    if tonkho_df is not None and "ma_so_vi_tri" in tonkho_df.columns:
-        qty_col = next((c for c in QTY_COLUMNS if c in tonkho_df.columns), None)
-        if qty_col:
-            occ = tonkho_df.groupby("ma_so_vi_tri")[qty_col].sum()
-            occupied_ids = set(occ[occ > 0].index)
-        else:
-            occupied_ids = set(tonkho_df["ma_so_vi_tri"].dropna().unique())
 
-    df["status"] = df["ma_so_vi_tri"].apply(lambda x: "occupied" if x in occupied_ids else "available")
+    if tonkho_df is not None:
+
+        # lấy toàn bộ vị trí xuất hiện trong tồn kho
+        occupied_ids = set(
+            tonkho_df["vi_tri_id"]
+            .dropna()
+            .astype(df["auto_id"].dtype)
+            .unique()
+        )
+
+    # auto_id của dm_vi_tri = vi_tri_id của tồn kho
+    df["status"] = df["auto_id"].apply(
+        lambda x: "occupied" if x in occupied_ids else "available")
     return df
 
 
@@ -689,13 +694,20 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+    available_warehouses = sorted(
+        int(path.name)
+        for path in (BASE_DIR / "models").iterdir()
+        if path.is_dir()
+        and (path / "RandomForest" / "day_ke_id.pkl").exists()
+        and (path / "RandomForest" / "tang.pkl").exists()
+    )
+    if not available_warehouses:
+        st.error("Không tìm thấy model RandomForest đã huấn luyện cho kho nào.")
+        st.stop()
+
     warehouse = st.selectbox(
         "Chọn kho",
-        [
-            12473657,
-            12630825,
-            12630830,
-        ],
+        available_warehouses,
         label_visibility="collapsed",
     )
 
@@ -808,7 +820,7 @@ with st.container():
         with c2:
             st.number_input(":material/scale: GW (kg)", value=gw, disabled=True)
         with c3:
-            st.number_input(":material/deployed_code: CBM (m³)", value=cbm, disabled=True)
+            st.number_input(":material/deployed_code: CBM (cm³)", value=cbm, disabled=True)
 
     else:
 
@@ -826,7 +838,7 @@ with st.container():
         with c4:
             gw = st.number_input(":material/scale: GW (kg)", value=0.0)
         with c5:
-            cbm = st.number_input(":material/deployed_code: CBM (m³)", value=0.0)
+            cbm = st.number_input(":material/deployed_code: CBM (cm³)", value=0.0)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -885,7 +897,10 @@ if submit:
     }
 
     with st.spinner("Đang phân tích dữ liệu kho vận..."):
-        result = predictor.predict(product)
+        # Putaway luôn tìm trong vùng Reserve. Predictor và ranker phải dùng
+        # cùng một loại vị trí, nếu không model dự đoán một vùng rồi ranker
+        # lại lọc sang vùng khác.
+        result = predictor.predict(product, target_vi_tri_type_id=2)
         ranking = rank_position(
             predictor_result=result,
             product=product,
@@ -893,6 +908,7 @@ if submit:
             tonkho=tonkho,
             cham=cham,
             top_k=5,
+            target_vi_tri_type_id=2,
         )
 
     st.session_state["wh_warehouse"] = warehouse
