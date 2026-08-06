@@ -3,6 +3,7 @@ import unittest
 import pandas as pd
 
 from src.model.ranking import rank_position
+from src.model.warehouse_graph import WarehouseGraph, WarehouseGraphConfig
 
 
 class SlottingRankingTests(unittest.TestCase):
@@ -52,6 +53,33 @@ class SlottingRankingTests(unittest.TestCase):
             pd.DataFrame(), top_k=5,
         )
         self.assertNotIn(2, result["auto_id"].tolist())
+
+
+class WarehouseGraphTests(unittest.TestCase):
+    def test_shortest_path_uses_cross_aisle_not_rack_crossing(self):
+        positions = pd.DataFrame([
+            {"auto_id": 1, "kho_id": 10, "day_ke_id": "A", "tang": 1,
+             "vi_tri_seq_id": 1, "ma_so_vi_tri": "A-001", "deleted": 0},
+            {"auto_id": 2, "kho_id": 10, "day_ke_id": "A", "tang": 1,
+             "vi_tri_seq_id": 2, "ma_so_vi_tri": "A-002", "deleted": 0},
+            {"auto_id": 3, "kho_id": 10, "day_ke_id": "B", "tang": 1,
+             "vi_tri_seq_id": 1, "ma_so_vi_tri": "B-001", "deleted": 0},
+            {"auto_id": 4, "kho_id": 10, "day_ke_id": "B", "tang": 1,
+             "vi_tri_seq_id": 2, "ma_so_vi_tri": "B-002", "deleted": 0},
+        ])
+        config = WarehouseGraphConfig(
+            rack_spacing_m=4.0,
+            bay_spacing_m=1.2,
+            include_top_cross_aisle=False,
+        )
+        graph = WarehouseGraph.from_positions(positions, kho_id=10, config=config)
+        distance = graph.distances_from_locations([2])
+
+        # 1.2 m down aisle A + 4 m cross-aisle + 1.2 m up aisle B.
+        self.assertAlmostEqual(distance[4], 6.4)
+        self.assertEqual(len(graph.gates["inbound"]), 7)
+        self.assertEqual(len(graph.gates["outbound"]), 6)
+        self.assertTrue(graph.distance_matrix()["inbound_distance_m"].notna().all())
 
 
 if __name__ == "__main__":

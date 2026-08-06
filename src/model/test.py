@@ -5,15 +5,11 @@ import pandas as pd
 from predictor import Predictor
 from ranking import rank_position
 
-# ==========================================================
 # Path
-# ==========================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# ==========================================================
 # Load data
-# ==========================================================
 
 feature_table = pd.read_csv(
     BASE_DIR / "../../data/process/classic_feature.csv",
@@ -40,9 +36,7 @@ product_table = pd.read_csv(
     low_memory=False,
 )
 
-# ==========================================================
 # Predictor
-# ==========================================================
 
 predictor = Predictor(
     feature_table=feature_table,
@@ -53,9 +47,7 @@ predictor.load_model(
     kho_id=12473657
 )
 
-# ==========================================================
 # Test SKU
-# ==========================================================
 
 product = {
     "auto_id": 99999999,
@@ -67,9 +59,7 @@ product = {
     "tong_nhap": 300,
 }
 
-# ==========================================================
 # Predictor
-# ==========================================================
 
 result = predictor.predict(
     product,
@@ -84,9 +74,7 @@ print()
 print("TANG")
 print(result["tang_prediction"])
 
-# ==========================================================
 # Ranking
-# ==========================================================
 
 ranking = rank_position(
     predictor_result=result,

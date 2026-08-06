@@ -12,30 +12,21 @@ from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
 from trainer import train_model
-# ============================================
-# Load dataset
-# ============================================
 
 df = pd.read_csv(
     "../../data/process/classic_feature.csv"
 )
 
-# ============================================
 # Kho cần train
-# ============================================
 
-KHO_ID = 12473657
+KHO_ID = 12630825
 
 feature = (
-    # Putaway model learns Reserve only. Mixing Primary/Bãi Put/Reserve
-    # makes the target describe several different operational problems.
     df.query("kho_id == @KHO_ID and vi_tri_type_id == 2")
       .reset_index(drop=True)
 )
 
-# ============================================
 # Thư mục lưu model
-# ============================================
 
 SAVE_DIR = f"../../models/{KHO_ID}"
 

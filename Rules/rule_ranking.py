@@ -10,34 +10,10 @@ def rank_position(
     cham: pd.DataFrame,
     top_k: int = 5,
 ):
-    """
-    Ranking vị trí hoàn toàn dựa trên Rule Engine.
-
-    Parameters
-    ----------
-    product : dict
-        Thông tin sản phẩm nhập kho.
-
-    vitri : DataFrame
-        Danh mục vị trí.
-
-    tonkho : DataFrame
-        Tồn kho hiện tại.
-
-    cham : DataFrame
-        Log châm hàng.
-
-    Returns
-    -------
-    Top K vị trí tốt nhất.
-    """
 
     kho_id = product["kho_id"]
     san_pham_id = product["auto_id"]
 
-    # =====================================================
-    # Candidate theo kho
-    # =====================================================
 
     candidate = (
         vitri[
@@ -49,9 +25,6 @@ def rank_position(
     if candidate.empty:
         return pd.DataFrame()
 
-    # =====================================================
-    # Merge tồn kho
-    # =====================================================
 
     occupied = (
         tonkho[
@@ -77,10 +50,6 @@ def rank_position(
         inplace=True,
     )
 
-    # =====================================================
-    # Flag
-    # =====================================================
-
     candidate["same_product"] = (
         candidate["sku_current"] == san_pham_id
     )
@@ -95,20 +64,12 @@ def rank_position(
         (~candidate["empty"])
     )
 
-    # =====================================================
-    # Không overwrite SKU khác
-    # =====================================================
-
     candidate = candidate[
         ~candidate["other_product"]
     ]
 
     if candidate.empty:
         return pd.DataFrame()
-
-    # =====================================================
-    # Rule Engine
-    # =====================================================
 
     engine = RuleEngine()
 
@@ -119,9 +80,6 @@ def rank_position(
         cham=cham,
     )
 
-    # =====================================================
-    # Ranking
-    # =====================================================
 
     result = (
         candidate

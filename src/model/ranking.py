@@ -1,590 +1,28 @@
-# import pandas as pd
-
-
-# def rank_position(
-#     predictor_result: dict,
-#     product: dict,
-#     vitri: pd.DataFrame,
-#     tonkho: pd.DataFrame,
-#     cham: pd.DataFrame,
-#     top_k: int = 5,
-# ):
-
-#     kho_id = product["kho_id"]
-#     san_pham_id = product["auto_id"]
-
-#     day_prediction = predictor_result["day_prediction"]
-
-#     tang_prediction = predictor_result["tang_prediction"]
-
-#     results = []
-
-#     # =====================================================
-#     # Duyệt tất cả Day
-#     # =====================================================
-
-#     for _, day_row in day_prediction.iterrows():
-
-#         day_ke_id = day_row["day_ke_id"]
-#         day_prob = day_row["probability"]
-
-#         # =================================================
-#         # Duyệt tất cả Tang
-#         # =================================================
-
-#         for _, tang_row in tang_prediction.iterrows():
-
-#             tang = tang_row["tang"]
-#             tang_prob = tang_row["probability"]
-
-#             # =============================================
-#             # Candidate
-#             # =============================================
-
-#             candidate = vitri[
-#                 (vitri["kho_id"] == kho_id)
-#                 &
-#                 (vitri["day_ke_id"] == day_ke_id)
-#                 &
-#                 (vitri["tang"] == tang)
-#             ].copy()
-
-#             if candidate.empty:
-#                 continue
-
-#             # =============================================
-#             # Vị trí đang có tồn
-#             # =============================================
-
-#             occupied = (
-#                 tonkho[
-#                     [
-#                         "vi_tri_id",
-#                         "san_pham_id",
-#                     ]
-#                 ]
-#                 .drop_duplicates()
-#             )
-
-#             candidate = candidate.merge(
-#                 occupied,
-#                 left_on="auto_id",
-#                 right_on="vi_tri_id",
-#                 how="left",
-#             )
-
-#             candidate.rename(
-#                 columns={
-#                     "san_pham_id": "sku_current"
-#                 },
-#                 inplace=True,
-#             )
-
-#             # =============================================
-#             # Flag
-#             # =============================================
-
-#             candidate["same_product"] = (
-#                 candidate["sku_current"] == san_pham_id
-#             )
-
-#             candidate["empty"] = (
-#                 candidate["sku_current"].isna()
-#             )
-
-#             candidate["other_product"] = (
-#                 (~candidate["same_product"])
-#                 &
-#                 (~candidate["empty"])
-#             )
-
-#             # =============================================
-#             # Loại SKU khác
-#             # =============================================
-
-#             candidate = candidate[
-#                 ~candidate["other_product"]
-#             ]
-
-#             if candidate.empty:
-#                 continue
-
-#             # =============================================
-#             # Loại vị trí châm
-#             # =============================================
-
-#             replenish = pd.concat(
-#                 [
-#                     #cham["vi_tri_cu_id"],
-#                     cham["vi_tri_moi_id"],
-#                 ]
-#             ).dropna().unique()
-
-#             if candidate.empty:
-#                 continue
-
-#             # =============================================
-#             # Score
-#             # =============================================
-
-#             candidate["score"] = 0.0
-
-#             candidate.loc[
-#                 candidate["auto_id"].isin(replenish),
-#                 "score",
-#             ] -= 20
-            
-#             # cùng SKU
-#             candidate.loc[
-#                 candidate["same_product"],
-#                 "score",
-#             ] += 20
-
-#             # vị trí trống ưu tiên
-#             candidate.loc[
-#                 candidate["empty"],
-#                 "score",
-#             ] += 10
-
-#             # xác suất AI
-#             candidate["score"] += (
-#                 day_prob * 60
-#             )
-
-#             candidate["score"] += (
-#                 tang_prob * 50
-#             )
-
-#             candidate["day_probability"] = day_prob
-
-#             candidate["tang_probability"] = tang_prob
-
-#             results.append(candidate)
-
-#             #hàng nặng tầng thấp
-#             gw = product["gw_san_pham"]
-
-#             if gw >= 30:
-
-#                 candidate.loc[
-#                     candidate["tang"] == 1,
-#                     "score",
-#                 ] += 10
-
-#                 candidate.loc[
-#                     candidate["tang"] == 2,
-#                     "score",
-#                 ] += 5
-
-#                 candidate.loc[
-#                     candidate["tang"] >= 4,
-#                     "score",
-#                 ] -= 8
-
-#                 #hàng cồng kềnh tầng thấp 
-#             cbm = product["cbm_san_pham"]
-
-#             if cbm >= 25000:
-
-#                 candidate.loc[
-#                     candidate["tang"] == 1,
-#                     "score",
-#                 ] += 5
-
-#                 candidate.loc[
-#                     candidate["tang"] >= 4,
-#                     "score",
-#                 ] -= 10
-
-#             #Hàng HSD sắp hết < 60 ngày 
-#             if product["so_ngay_su_dung"] <= 60:
-
-#                 candidate.loc[
-#                     candidate["tang"] == 1,
-#                     "score",
-#                 ] += 10
-
-#                 candidate.loc[
-#                     candidate["tang"] >= 4,
-#                     "score",
-#                 ] -= 20
-#             #dãy quá nhiều sku và pallet giảm điểm ưu tiên dãy trống
-#             day_count = tonkho.merge(
-#                 vitri[
-#                     [
-#                         "auto_id",
-#                         "day_ke_id",
-#                     ]
-#                 ],
-#                 left_on="vi_tri_id",
-#                 right_on="auto_id",
-#             )
-
-#             load = (
-#                 day_count
-#                 .groupby("day_ke_id")
-#                 .size()
-#             )
-
-#             candidate["day_load"] = (
-#                 candidate["day_ke_id"]
-#                 .map(load)
-#                 .fillna(0)
-#             )
-
-#             candidate["score"] -= (
-#                 candidate["day_load"] * 0.2
-#             )
-#     # =====================================================
-#     # Không có candidate
-#     # =====================================================
-
-#     if len(results) == 0:
-
-#         return pd.DataFrame()
-
-#     # =====================================================
-#     # Merge
-#     # =====================================================
-
-#     result = pd.concat(
-#         results,
-#         ignore_index=True,
-#     )
-
-#     # =====================================================
-#     # Trùng vị trí
-#     # =====================================================
-
-#     result = (
-#         result
-#         .sort_values(
-#             "score",
-#             ascending=False,
-#         )
-#         .drop_duplicates(
-#             subset="auto_id"
-#         )
-#     )
-
-#     # =====================================================
-#     # Top K
-#     # =====================================================
-
-#     return result.head(top_k)
-
-
-# import pandas as pd
-
-
-# def rank_position(
-#     predictor_result: dict,
-#     product: dict,
-#     vitri: pd.DataFrame,
-#     tonkho: pd.DataFrame,
-#     cham: pd.DataFrame,
-#     top_k: int = 5,
-# ):
-
-#     kho_id = product["kho_id"]
-#     san_pham_id = product["auto_id"]
-
-#     day_prediction = predictor_result["day_prediction"]
-
-#     # tang_prediction giờ có cột day_ke_id gắn kèm (mỗi dãy có
-#     # bộ tầng riêng, được predict đúng theo ngữ cảnh của dãy đó)
-#     tang_prediction = predictor_result["tang_prediction"]
-
-#     results = []
-
-#     # =====================================================
-#     # day_load: tính 1 lần duy nhất trước vòng lặp
-#     # (trước đây bị tính lại ở mỗi cặp day x tang -> lãng phí)
-#     # =====================================================
-
-#     day_count = tonkho.merge(
-#         vitri[
-#             [
-#                 "auto_id",
-#                 "day_ke_id",
-#             ]
-#         ],
-#         left_on="vi_tri_id",
-#         right_on="auto_id",
-#     )
-
-#     day_load_map = (
-#         day_count
-#         .groupby("day_ke_id")
-#         .size()
-#     )
-
-#     # =====================================================
-#     # Duyệt Day (top_day dãy do model dự đoán)
-#     # =====================================================
-
-#     for _, day_row in day_prediction.iterrows():
-
-#         day_ke_id = day_row["day_ke_id"]
-#         day_prob = day_row["probability"]
-
-#         # =================================================
-#         # Chỉ lấy các tầng ĐÃ ĐƯỢC PREDICT CHO ĐÚNG DÃY NÀY
-#         # (trước đây loop qua toàn bộ tang_prediction bất kể
-#         # nó được sinh ra cho dãy nào -> sai ngữ cảnh)
-#         # =================================================
-
-#         tang_for_this_day = tang_prediction[
-#             tang_prediction["day_ke_id"] == day_ke_id
-#         ]
-
-#         for _, tang_row in tang_for_this_day.iterrows():
-
-#             tang = tang_row["tang"]
-#             tang_prob = tang_row["probability"]
-
-#             # =============================================
-#             # Candidate
-#             # =============================================
-
-#             candidate = vitri[
-#                 (vitri["kho_id"] == kho_id)
-#                 &
-#                 (vitri["day_ke_id"] == day_ke_id)
-#                 &
-#                 (vitri["tang"] == tang)
-#             ].copy()
-
-#             if candidate.empty:
-#                 continue
-
-#             # =============================================
-#             # Vị trí đang có tồn
-#             # =============================================
-
-#             occupied = (
-#                 tonkho[
-#                     [
-#                         "vi_tri_id",
-#                         "san_pham_id",
-#                     ]
-#                 ]
-#                 .drop_duplicates()
-#             )
-
-#             candidate = candidate.merge(
-#                 occupied,
-#                 left_on="auto_id",
-#                 right_on="vi_tri_id",
-#                 how="left",
-#             )
-
-#             candidate.rename(
-#                 columns={
-#                     "san_pham_id": "sku_current"
-#                 },
-#                 inplace=True,
-#             )
-
-#             # =============================================
-#             # Flag
-#             # =============================================
-
-#             candidate["same_product"] = (
-#                 candidate["sku_current"] == san_pham_id
-#             )
-
-#             candidate["empty"] = (
-#                 candidate["sku_current"].isna()
-#             )
-
-#             candidate["other_product"] = (
-#                 (~candidate["same_product"])
-#                 &
-#                 (~candidate["empty"])
-#             )
-
-#             # =============================================
-#             # Loại SKU khác
-#             # =============================================
-
-#             candidate = candidate[
-#                 ~candidate["other_product"]
-#             ]
-
-#             if candidate.empty:
-#                 continue
-
-#             # =============================================
-#             # Loại vị trí châm
-#             # =============================================
-
-#             replenish = pd.concat(
-#                 [
-#                     #cham["vi_tri_cu_id"],
-#                     cham["vi_tri_moi_id"],
-#                 ]
-#             ).dropna().unique()
-
-#             if candidate.empty:
-#                 continue
-
-#             # =============================================
-#             # Score
-#             # =============================================
-
-#             candidate["score"] = 0.0
-
-#             candidate.loc[
-#                 candidate["auto_id"].isin(replenish),
-#                 "score",
-#             ] -= 20
-            
-#             # cùng SKU
-#             candidate.loc[
-#                 candidate["same_product"],
-#                 "score",
-#             ] += 20
-
-#             # vị trí trống ưu tiên
-#             candidate.loc[
-#                 candidate["empty"],
-#                 "score",
-#             ] += 10
-
-#             # xác suất AI
-#             candidate["score"] += (
-#                 day_prob * 60
-#             )
-
-#             candidate["score"] += (
-#                 tang_prob * 50
-#             )
-
-#             candidate["day_probability"] = day_prob
-
-#             candidate["tang_probability"] = tang_prob
-
-#             results.append(candidate)
-
-#             #hàng nặng tầng thấp
-#             gw = product["gw_san_pham"]
-
-#             if gw >= 30:
-
-#                 candidate.loc[
-#                     candidate["tang"] == 1,
-#                     "score",
-#                 ] += 5
-
-#                 candidate.loc[
-#                     candidate["tang"] == 2,
-#                     "score",
-#                 ] += 5
-
-#                 candidate.loc[
-#                     candidate["tang"] >= 4,
-#                     "score",
-#                 ] -= -8
-
-#                 #hàng cồng kềnh tầng thấp 
-#             cbm = product["cbm_san_pham"]
-
-#             if cbm >= 25000:
-
-#                 candidate.loc[
-#                     candidate["tang"] == 1,
-#                     "score",
-#                 ] += 5
-
-#                 candidate.loc[
-#                     candidate["tang"] >= 4,
-#                     "score",
-#                 ] -= 10
-
-#             #Hàng HSD sắp hết < 60 ngày 
-#             if product["so_ngay_su_dung"] <= 60:
-
-#                 candidate.loc[
-#                     candidate["tang"] == 1,
-#                     "score",
-#                 ] += 10
-
-#                 candidate.loc[
-#                     candidate["tang"] >= 4,
-#                     "score",
-#                 ] -= 5
-#             #dãy quá nhiều sku và pallet giảm điểm ưu tiên dãy trống
-#             candidate["day_load"] = (
-#                 candidate["day_ke_id"]
-#                 .map(day_load_map)
-#                 .fillna(0)
-#             )
-
-#             candidate["score"] -= (
-#                 candidate["day_load"] * 0.2
-#             )
-#     # =====================================================
-#     # Không có candidate
-#     # =====================================================
-
-#     if len(results) == 0:
-
-#         return pd.DataFrame()
-
-#     # =====================================================
-#     # Merge
-#     # =====================================================
-
-#     result = pd.concat(
-#         results,
-#         ignore_index=True,
-#     )
-
-#     # =====================================================
-#     # Trùng vị trí
-#     # =====================================================
-
-#     result = (
-#         result
-#         .sort_values(
-#             "score",
-#             ascending=False,
-#         )
-#         .drop_duplicates(
-#             subset="auto_id"
-#         )
-#     )
-
-#     # =====================================================
-#     # Top K
-#     # =====================================================
-
-#     return result.head(top_k)
-
-
 
 import numpy as np
 import pandas as pd
 
+try:
+    from .warehouse_graph import WarehouseGraph
+except ImportError:  # Support running src/model/test.py directly.
+    from warehouse_graph import WarehouseGraph
 
-# ==============================================================
+
+
 # Trọng số scoring — TẤT CẢ thành phần đều nằm trong [0,1] trước
-# khi nhân trọng số, để không thành phần nào "nuốt" thành phần khác
-# chỉ vì đơn vị đo khác nhau.
-#
 # Tinh chỉnh ở đây, không cần sửa logic bên dưới.
-# ==============================================================
+
 
 DEFAULT_WEIGHTS = {
-    "same_product": 0.18,
-    "empty": 0.07,
-    "ai_probability": 0.25,
-    "physical_fit": 0.10,
-    "congestion": 0.08,
+    "same_product": 0.15,
+    "empty": 0.05,
+    "ai_probability": 0.20,
+    "physical_fit": 0.08,
+    "congestion": 0.05,
     "capacity": 0.17,
     "proximity": 0.10,
-    "accessibility": 0.05,
+    "accessibility": 0.12,
+    "outbound_distance": 0.08,
 }
 
 
@@ -629,11 +67,24 @@ def rank_position(
     top_k: int = 5,
     weights: dict = None,
     target_vi_tri_type_id: int = 2,
+    distance_matrix: pd.DataFrame = None,
+    warehouse_graph: WarehouseGraph = None,
     # 2 = Reserve (mặc định, putaway hàng mới)
     # 1 = Primary (dùng cho module gợi ý châm hàng sau này)
     # 4 = Bãi Pick hàng (dùng cho module gợi ý pick sau này)
 ):
-    weights = {**DEFAULT_WEIGHTS, **(weights or {})}
+    if weights is None:
+        weights = DEFAULT_WEIGHTS.copy()
+        feature = predictor_result.get("feature", {})
+        abc_score = float(feature.get("abc_score", 1) or 1)
+        velocity = float(np.clip((abc_score - 1.0) / 2.0, 0.0, 1.0))
+        # Fast-moving A items pay more attention to the outbound route;
+        # slow C items favor the inbound putaway route. Their combined
+        # contribution stays constant, keeping scores comparable.
+        weights["outbound_distance"] = 0.04 + 0.06 * velocity
+        weights["accessibility"] = 0.20 - weights["outbound_distance"]
+    else:
+        weights = {**DEFAULT_WEIGHTS, **weights}
     kho_id = product["kho_id"]
     san_pham_id = product["auto_id"]
     _ = cham
@@ -645,8 +96,6 @@ def rank_position(
     if missing:
         raise ValueError(f"Thiếu cột vị trí: {sorted(missing)}")
 
-    # Hard constraints come before scoring. A model must never make an
-    # inactive/deleted/wrong-area location feasible.
     candidates = vitri[
         vitri["kho_id"].eq(kho_id)
         & vitri["vi_tri_type_id"].eq(target_vi_tri_type_id)
@@ -664,8 +113,6 @@ def rank_position(
     if "deleted" in stock:
         stock = stock[stock["deleted"].fillna(0).eq(0)]
 
-    # Use net quantity instead of treating every historical stock row as
-    # occupied. This removes ghost occupancy created by fully-issued LPNs.
     inbound = [c for c in ("sl_nhap_chan", "sl_nhap_le", "sl_nhap_all_special") if c in stock]
     outbound = [c for c in ("sl_xuat_chan", "sl_xuat_le", "sl_xuat_all_special") if c in stock]
     adjustments = [c for c in ("sl_dc_chan", "sl_dc_le", "sl_dc_all_special") if c in stock]
@@ -713,7 +160,6 @@ def rank_position(
     if candidates.empty:
         return pd.DataFrame()
 
-    # Capacity is calculated from actual occupied GW/CBM where available.
     used = active_stock.groupby("vi_tri_id").agg(
         used_gw=("gw", "sum") if "gw" in active_stock else ("san_pham_id", "size"),
         used_cbm=("cbm", "sum") if "cbm" in active_stock else ("san_pham_id", "size"),
@@ -749,24 +195,27 @@ def rank_position(
     if candidates.empty:
         return pd.DataFrame()
 
-    # Prefer nearby slots of the same SKU. For a new SKU, use a stable
-    # lower-sequence accessibility prior instead of CSV row order.
+    if warehouse_graph is None:
+        warehouse_graph = WarehouseGraph.from_positions(vitri, kho_id=kho_id)
+    if distance_matrix is None:
+        distance_matrix = warehouse_graph.distance_matrix()
+    candidates = candidates.merge(distance_matrix, on="auto_id", how="left")
+
+    # Prefer locations close to an existing Reserve slot of the same SKU.
+    same_sku_location_ids = active_stock.loc[
+        active_stock["san_pham_id"].eq(san_pham_id), "vi_tri_id"
+    ].dropna().unique()
+    graph_proximity = warehouse_graph.distances_from_locations(same_sku_location_ids)
+    candidates["same_sku_distance_m"] = candidates["auto_id"].map(graph_proximity)
+
     seq = pd.to_numeric(candidates.get("vi_tri_seq_id", 0), errors="coerce").fillna(0)
     if "ma_so_vi_tri" in candidates:
-        # Some warehouses store vi_tri_seq_id=0. Derive a stable physical
-        # order from the location code so tied slots are not chosen by CSV
-        # row order (for example N02265 -> 2265).
         code_seq = pd.to_numeric(
             candidates["ma_so_vi_tri"].astype(str).str.replace(r"\D", "", regex=True),
             errors="coerce",
         ).fillna(0)
         seq = seq.where(seq > 0, code_seq)
     candidates["_sequence"] = seq
-    same_locations = candidates[candidates["same_product"]]
-    same_seq_by_day = same_locations.groupby("day_ke_id")["_sequence"].median()
-    nearest = (seq - candidates["day_ke_id"].map(same_seq_by_day)).abs()
-    candidates["proximity_raw"] = 1.0 / (1.0 + nearest.fillna(seq))
-    candidates["accessibility_raw"] = 1.0 / (1.0 + seq.clip(lower=0))
 
     candidates["physical_fit_raw"] = candidates["tang"].apply(
         lambda level: _physical_fit(level, unit_gw, unit_cbm, product.get("so_ngay_su_dung", 0))
@@ -778,11 +227,7 @@ def rank_position(
 
     result = candidates
 
-    # =====================================================
     # Chuẩn hóa min-max TRÊN TOÀN BỘ candidate của SKU này
-    # -> mỗi thành phần thực sự trải rộng [0,1] thay vì bị nén
-    # vào một khoảng hẹp (vd day_prob top-5 thường lệch nhau rất ít)
-    # =====================================================
 
     def _minmax(series: pd.Series) -> pd.Series:
         lo, hi = series.min(), series.max()
@@ -793,15 +238,21 @@ def rank_position(
     result["ai_fit"] = _minmax(result["ai_raw"])
 
     # congestion: dãy càng tải nhiều càng nên bị trừ điểm
-    # -> đảo dấu sau khi normalize để dùng chung công thức cộng dồn
+    #  đảo dấu sau khi normalize để dùng chung công thức cộng dồn
     result["congestion_fit"] = 1.0 - _minmax(result["day_load"])
 
-    result["proximity_fit"] = _minmax(result["proximity_raw"])
-    result["accessibility_fit"] = _minmax(result["accessibility_raw"])
+    def _distance_fit(series: pd.Series) -> pd.Series:
+        numeric = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan)
+        if numeric.notna().sum() == 0:
+            return pd.Series(0.5, index=series.index)
+        numeric = numeric.fillna(numeric.max())
+        return 1.0 - _minmax(numeric)
 
-    # =====================================================
+    result["proximity_fit"] = _distance_fit(result["same_sku_distance_m"])
+    result["accessibility_fit"] = _distance_fit(result["inbound_distance_m"])
+    result["outbound_fit"] = _distance_fit(result["outbound_distance_m"])
+
     # Điểm cuối cùng: tổng có trọng số, mọi thành phần đều [0,1]
-    # =====================================================
 
     result["score"] = (
         weights["same_product"] * result["same_product"].astype(float)
@@ -812,11 +263,10 @@ def rank_position(
         + weights["capacity"] * result["capacity_fit"]
         + weights["proximity"] * result["proximity_fit"]
         + weights["accessibility"] * result["accessibility_fit"]
+        + weights["outbound_distance"] * result["outbound_fit"]
     )
 
-    # =====================================================
     # Trùng vị trí
-    # =====================================================
 
     result = (
         result
@@ -830,8 +280,6 @@ def rank_position(
         )
     )
 
-    # =====================================================
     # Top K
-    # =====================================================
 
     return result.head(top_k)

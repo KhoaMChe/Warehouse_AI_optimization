@@ -6,10 +6,8 @@ import streamlit as st
 
 from src.model.predictor import Predictor
 from src.model.ranking import rank_position
+from src.model.warehouse_graph import WarehouseGraph, WarehouseGraphConfig
 
-# ==========================================================
-# Config
-# ==========================================================
 
 st.set_page_config(
     page_title="Warehouse AI Slotting",
@@ -20,15 +18,11 @@ st.set_page_config(
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# ==========================================================
-# Theme — Trắng & Xanh lá (Logistics), lấy cảm hứng từ bản
-# thiết kế React (card bo góc 2xl, shadow tinh tế, accent xanh lá)
-# ==========================================================
 
-PRIMARY = "#16A34A"        # xanh lá chủ đạo (đậm hơn để tương phản tốt)
+PRIMARY = "#16A34A"        
 PRIMARY_HOVER = "#15803D"
-PRIMARY_SOFT = "#22C55E"   # dùng cho badge / highlight
-PRIMARY_LIGHT = "#F0FDF4"  # nền xanh lá rất nhạt
+PRIMARY_SOFT = "#22C55E"   
+PRIMARY_LIGHT = "#F0FDF4"  
 PRIMARY_BORDER = "#BBF7D0"
 INK = "#111827"
 SUBTLE = "#6B7280"
@@ -454,11 +448,6 @@ def legend_item(color: str, border: str, label: str) -> str:
         f"</div>"
     )
 
-
-# ==========================================================
-# Cache
-# ==========================================================
-
 @st.cache_data
 def load_data():
 
@@ -490,11 +479,6 @@ def load_data():
 
 @st.cache_resource
 def load_predictor(_feature_table):
-    # Dấu gạch dưới ở đầu tên tham số (_feature_table) báo cho Streamlit
-    # BỎ QUA việc hash DataFrame này mỗi lần hàm được gọi lại. Nếu không có
-    # dấu gạch dưới, Streamlit vẫn phải băm (hash) toàn bộ feature_table
-    # (có thể hàng trăm nghìn dòng) ở MỌI lần rerun chỉ để kiểm tra cache,
-    # dù thân hàm không chạy lại — đây là một nguyên nhân gây chậm âm thầm.
     predictor = Predictor(
         feature_table=_feature_table,
         model_root=BASE_DIR / "./models",
@@ -503,24 +487,28 @@ def load_predictor(_feature_table):
     return predictor
 
 
+@st.cache_resource
+def load_warehouse_graph(_vitri, kho_id):
+
+    config = WarehouseGraphConfig(
+        inbound_gate_count=7,
+        outbound_gate_count=6,
+    )
+    graph = WarehouseGraph.from_positions(_vitri, kho_id=kho_id, config=config)
+    return graph, graph.distance_matrix()
+
+
 feature_table, vitri, tonkho, cham, dm_san_pham = load_data()
 predictor = load_predictor(feature_table)
 
 
-# ==========================================================
-# Sơ đồ kho 2D — helpers
-#
-# GIẢ ĐỊNH SCHEMA (điều chỉnh tên cột tại đây nếu khác thực tế):
-#   vitri  : kho_id, ma_so_vi_tri, day_ke_id, tang
-#   tonkho : ma_so_vi_tri, + 1 cột số lượng tồn (tự dò trong QTY_COLUMNS)
-# ==========================================================
 
 QTY_COLUMNS = ["so_luong_ton", "ton_kho", "so_luong", "quantity", "sl_ton", "sl_ton_kho"]
 
 
 @st.cache_data
 def get_warehouse_positions(vitri_df: pd.DataFrame, tonkho_df: pd.DataFrame, kho_id) -> pd.DataFrame:
-    """Chuẩn bị dữ liệu từng ô vị trí (dãy, tầng, số thứ tự ô, trạng thái) cho 1 kho."""
+
     df = vitri_df.copy()
     if "kho_id" in df.columns:
         df = df[df["kho_id"] == kho_id]
@@ -668,9 +656,9 @@ def build_rack_detail_figure(positions_df: pd.DataFrame, rack, ranking: pd.DataF
     return fig
 
 
-# ==========================================================
+
 # Sidebar — Kho & thông tin hệ thống
-# ==========================================================
+
 
 with st.sidebar:
     st.markdown(
@@ -711,12 +699,6 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
-    # QUAN TRỌNG: Streamlit chạy lại TOÀN BỘ script ở mỗi lần tương tác
-    # (đổi radio sơ đồ, tick checkbox, gõ số...), không chỉ khi đổi kho.
-    # Nếu gọi predictor.load_model(warehouse) trực tiếp như trước, model sẽ
-    # bị tải lại từ đĩa ở MỌI rerun -> đây là nguyên nhân chính gây "lâu"
-    # mỗi lần thao tác, chứ không riêng lúc đọc CSV lần đầu.
-    # Chỉ tải lại model khi kho được chọn thực sự thay đổi:
     if st.session_state.get("_loaded_warehouse") != warehouse:
         with st.spinner(f"Đang tải mô hình cho kho {warehouse}..."):
             predictor.load_model(warehouse)
@@ -745,9 +727,7 @@ with st.sidebar:
     st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
     st.caption("© Warehouse AI · Slotting Engine v1.0")
 
-# ==========================================================
-# Header
-# ==========================================================
+
 
 st.markdown(
     f"""
@@ -763,9 +743,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ==========================================================
-# Sản phẩm
-# ==========================================================
 
 st.markdown(
     f'<div class="section-title"><span class="icon-chip">{icon("package_2", "msym-sm")}</span>Thông tin sản phẩm</div>',
@@ -842,9 +819,7 @@ with st.container():
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================================
-# Form nhập kho
-# ==========================================================
+
 
 st.markdown(
     f'<div class="section-title"><span class="icon-chip">{icon("move_to_inbox", "msym-sm")}</span>Thông số nhập kho</div>',
@@ -879,11 +854,6 @@ with st.container():
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================================
-# Predict — tính toán và lưu vào session_state để các phần
-# khác (sơ đồ kho, kết quả) vẫn hiển thị đúng sau khi người
-# dùng tương tác với sơ đồ (đổi chế độ xem, chọn dãy...)
-# ==========================================================
 
 if submit:
     product = {
@@ -897,9 +867,7 @@ if submit:
     }
 
     with st.spinner("Đang phân tích dữ liệu kho vận..."):
-        # Putaway luôn tìm trong vùng Reserve. Predictor và ranker phải dùng
-        # cùng một loại vị trí, nếu không model dự đoán một vùng rồi ranker
-        # lại lọc sang vùng khác.
+        warehouse_graph, distance_matrix = load_warehouse_graph(vitri, warehouse)
         result = predictor.predict(product, target_vi_tri_type_id=2)
         ranking = rank_position(
             predictor_result=result,
@@ -909,6 +877,8 @@ if submit:
             cham=cham,
             top_k=5,
             target_vi_tri_type_id=2,
+            distance_matrix=distance_matrix,
+            warehouse_graph=warehouse_graph,
         )
 
     st.session_state["wh_warehouse"] = warehouse
@@ -920,10 +890,11 @@ current_ranking = None
 if st.session_state.get("wh_warehouse") == warehouse:
     current_result = st.session_state.get("wh_result")
     current_ranking = st.session_state.get("wh_ranking")
-
-# ==========================================================
-# Sơ đồ kho 2D
-# ==========================================================
+    if current_ranking is not None and not {
+        "inbound_distance_m", "outbound_distance_m", "same_sku_distance_m"
+    }.issubset(current_ranking.columns):
+        current_result = None
+        current_ranking = None
 
 st.markdown(
     f"""<div class="section-title">
@@ -1024,9 +995,7 @@ with st.container():
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================================
 # Kết quả gợi ý AI (chỉ hiển thị khi đã có dự đoán cho kho hiện tại)
-# ==========================================================
 
 if current_result is not None and current_ranking is not None:
 
@@ -1038,9 +1007,7 @@ if current_result is not None and current_ranking is not None:
         unsafe_allow_html=True,
     )
 
-    # ------------------------------------------------------
     # Day & Tầng — hiển thị song song dạng card
-    # ------------------------------------------------------
 
     col_day, col_tang = st.columns(2)
 
@@ -1078,9 +1045,7 @@ if current_result is not None and current_ranking is not None:
         st.dataframe(result["tang_prediction"], use_container_width=True, hide_index=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ------------------------------------------------------
     # Kết quả chính (AI Recommendation) + Diễn giải + Top 5
-    # ------------------------------------------------------
 
     if ranking.empty:
         st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -1137,6 +1102,14 @@ if current_result is not None and current_ranking is not None:
                             {icon(trang_thai_icon, 'msym-sm')} {trang_thai}
                         </div>
                     </div>
+                    <div class="detail-tile">
+                        <div class="k">Đường từ cổng nhập</div>
+                        <div class="v">{top1['inbound_distance_m']:.1f} m</div>
+                    </div>
+                    <div class="detail-tile">
+                        <div class="k">Đường đến cổng xuất</div>
+                        <div class="v">{top1['outbound_distance_m']:.1f} m</div>
+                    </div>
                 </div>
                 <div class="confidence-row">
                     <span class="confidence-label">ĐIỂM PHÙ HỢP</span>
@@ -1182,9 +1155,7 @@ if current_result is not None and current_ranking is not None:
             )
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # --------------------------------------------------
         # Top 5 vị trí — dạng thẻ xếp hạng
-        # --------------------------------------------------
 
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown(
@@ -1218,15 +1189,7 @@ if current_result is not None and current_ranking is not None:
                 if is_best else ""
             )
 
-            # Ghép toàn bộ thẻ thành MỘT dòng duy nhất (không xuống dòng).
-            # Lý do: khi dùng chuỗi f-string nhiều dòng, nếu một dòng (như
-            # badge_html ở trên) rỗng đối với các thẻ không phải #1, dòng đó
-            # trở thành dòng "trắng" (chỉ chứa khoảng trắng thụt lề). Trình
-            # phân tích Markdown của Streamlit coi dòng trắng là kết thúc
-            # khối HTML thô, khiến phần còn lại của thẻ bị hiển thị dưới
-            # dạng code/text thay vì được render thành HTML — đúng là lỗi
-            # đang gặp (chỉ thẻ #1 có badge nên không bị dòng trắng, còn
-            # thẻ #2–5 thì bị). Nối thành 1 dòng sẽ loại bỏ hoàn toàn rủi ro này.
+
             card_html = (
                 f'<div class="rank-card {"best" if is_best else ""}">'
                 f"{badge_html}"
@@ -1237,6 +1200,7 @@ if current_result is not None and current_ranking is not None:
                 f'<div class="row"><span class="k">{icon("view_column", "msym-sm")} Dãy</span><span class="v">{row["day_ke_id"]}</span></div>'
                 f'<div class="row"><span class="k">{icon("layers", "msym-sm")} Tầng</span><span class="v">{row["tang"]}</span></div>'
                 f'<div class="row"><span class="k">{icon("location_on", "msym-sm")} Vị trí</span><span class="v">{row["ma_so_vi_tri"]}</span></div>'
+                f'<div class="row"><span class="k">{icon("route", "msym-sm")} Cổng nhập</span><span class="v">{row["inbound_distance_m"]:.1f} m</span></div>'
                 f'<div class="div"></div>'
                 f'<div class="row"><span class="k">Trạng thái</span><span class="v">{trang_thai_row}</span></div>'
                 f'<div class="bar-track"><div class="bar-fill" style="width:{bar_pct}%;"></div></div>'
@@ -1248,9 +1212,6 @@ if current_result is not None and current_ranking is not None:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # --------------------------------------------------
-        # Bảng chi tiết (đầy đủ dữ liệu)
-        # --------------------------------------------------
 
         with st.expander(":material/table_rows: Xem bảng chi tiết đầy đủ"):
             display_df = ranking[
@@ -1259,6 +1220,10 @@ if current_result is not None and current_ranking is not None:
                     "day_ke_id",
                     "tang",
                     "score",
+                    "inbound_distance_m",
+                    "outbound_distance_m",
+                    "same_sku_distance_m",
+                    "capacity_fit",
                     "same_product",
                     "empty",
                 ]
@@ -1268,6 +1233,10 @@ if current_result is not None and current_ranking is not None:
                     "day_ke_id": "Dãy kệ",
                     "tang": "Tầng",
                     "score": "Điểm phù hợp",
+                    "inbound_distance_m": "Đường từ cổng nhập (m)",
+                    "outbound_distance_m": "Đường tới cổng xuất (m)",
+                    "same_sku_distance_m": "Khoảng cách tới cùng SKU (m)",
+                    "capacity_fit": "Mức đáp ứng sức chứa",
                     "same_product": "Cùng sản phẩm",
                     "empty": "Trống",
                 }

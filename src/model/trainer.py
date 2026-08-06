@@ -24,12 +24,6 @@ def train_model(
 
     feature = feature.copy()
 
-    # ==========================================
-    # Remove singleton class
-    # ==========================================
-
-    # A class needs at least two distinct SKUs so train and test can be
-    # separated without leaking duplicated location rows of the same SKU.
     count = feature.groupby(target)["san_pham_id"].nunique()
 
     valid_class = count[count >= 2].index
@@ -46,26 +40,23 @@ def train_model(
         feature[target].isin(valid_class)
     ].copy()
 
-    # ==========================================
     # Target
-    # ==========================================
 
     y = feature[target]
     groups = feature["san_pham_id"]
 
     X = feature.drop(columns=drop_cols)
-    # ==========================================
+
     # Split
-    # ==========================================
+
 
     splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
     train_idx, test_idx = next(splitter.split(X, y, groups=groups))
     X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
     y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
-    # ==========================================
+
     # Train
-    # ==========================================
 
     start = time.time()
 
@@ -76,9 +67,7 @@ def train_model(
 
     train_time = time.time() - start
 
-    # ==========================================
     # Predict
-    # ==========================================
 
     pred = model.predict(X_test)
 
@@ -120,9 +109,7 @@ def train_model(
         "top5_accuracy": None,
     }
 
-    # ==========================================
     # Top5 Accuracy
-    # ==========================================
 
     if hasattr(model, "predict_proba"):
 
@@ -152,9 +139,7 @@ def train_model(
 
         metrics["top5_accuracy"] = top5
 
-    # ==========================================
     # Print Metric
-    # ==========================================
 
     print("=" * 60)
     print("Target:", target)
@@ -181,9 +166,8 @@ def train_model(
         )
     )
 
-    # ==========================================
     # Feature Importance
-    # ==========================================
+
 
     if hasattr(model, "feature_importances_"):
 
